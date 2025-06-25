@@ -1,8 +1,6 @@
 const titleElem = document.getElementById('title-display');
 const messageElem = document.getElementById('message-display');
 const indexElem = document.getElementById('client-index');
-const canvas = document.getElementById('canvas');
-const context = canvas.getContext('2d');
 const webRoomsWebSocketServerAddr = 'https://nosch.uber.space/web-rooms/';
 
 const circleRadius = 50;
@@ -17,6 +15,12 @@ const canvasMap = {};
 const contextMap = {};
 let aktiveNummer = null;
 let zeichnen = false;
+// Audio-Variablen
+let dayAudioBuffer, nightAudioBuffer;
+let daySource = null;
+let nightSource = null;
+let audioCtx = null;
+let isDay = true;
 
 // Statische Canvas-Elemente (1–3) hinzufügen
 for (let i = 1; i <= 3; i++) {
@@ -162,24 +166,17 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// Alternativ: Klick auf die 3D-Fläche (für plane1–plane6)
-for (let i = 1; i <= 6; i++) {
-  const plane = document.querySelector(`#plane${i}`);
-  if (plane) {
-    plane.addEventListener("click", () => toggleCanvas(i));
-  }
-}
 /****************************************************************
- * websocket communication
+ * websocket-Kommunikation
  */
 const socket = new WebSocket(webRoomsWebSocketServerAddr);
 
-// listen to opening websocket connections
+// auf das Öffnen der WebSocket-Verbindung hören
 socket.addEventListener('open', (event) => {
   sendRequest('*enter-room*', 'touch-touch');
   sendRequest('*subscribe-client-count*');
 
-  // ping the server regularly with an empty message to prevent the socket from closing
+  // Server regelmäßig mit einer leeren Nachricht anpingen, damit die Verbindung nicht geschlossen wird
   setInterval(() => socket.send(''), 30000);
 });
 
@@ -189,7 +186,7 @@ socket.addEventListener("close", (event) => {
   sendRequest('*broadcast-message*', ['end', clientId]);
 });
 
-// listen to messages from server
+// auf Nachrichten vom Server hören
 socket.addEventListener('message', (event) => {
   const data = event.data;
 
@@ -197,7 +194,7 @@ socket.addEventListener('message', (event) => {
     const incoming = JSON.parse(data);
     const selector = incoming[0];
 
-    // dispatch incomming messages
+    // eingehende Nachrichten verteilen
     switch (selector) {
       case '*client-id*':
         clientId = incoming[1] + 1;
@@ -209,27 +206,6 @@ socket.addEventListener('message', (event) => {
         indexElem.innerHTML = `#${clientId}/${clientCount}`;
         break;
 
-      case 'start': {
-        const id = incoming[1];
-        const x = incoming[2];
-        const y = incoming[3];
-        createTouch(id, x, y);
-        break;
-      }
-
-      case 'move': {
-        const id = incoming[1];
-        const x = incoming[2];
-        const y = incoming[3];
-        moveTouch(id, x, y);
-        break;
-      }
-
-      case 'end': {
-        const id = incoming[1];
-        deleteTouch(id);
-        break;
-      }
 
       case '*error*': {
         const message = incoming[1];
@@ -243,12 +219,64 @@ socket.addEventListener('message', (event) => {
   }
 });
 
-function setErrorMessage(text) {
-  messageElem.innerText = text;
-  messageElem.classList.add('error');
-}
+
 
 function sendRequest(...message) {
   const str = JSON.stringify(message);
   socket.send(str);
 }
+
+// Audio-Funktionen
+async function initAudioBuffers() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  const loadBuffer = async (url) => {
+    const res = await fetch(url);
+    const data = await res.arrayBuffer();
+    return await audioCtx.decodeAudioData(data);
+  };
+
+  dayAudioBuffer = await loadBuffer("sounds/day.mp3");
+  nightAudioBuffer = await loadBuffer("sounds/night.mp3");
+
+  playCurrentSceneSound();
+}
+
+function stopAllSounds() {
+  if (daySource) daySource.stop();
+  if (nightSource) nightSource.stop();
+}
+
+function playCurrentSceneSound() {
+  stopAllSounds();
+
+  if (isDay && dayAudioBuffer) {
+    daySource = audioCtx.createBufferSource();
+    daySource.buffer = dayAudioBuffer;
+    daySource.loop = true;
+    daySource.connect(audioCtx.destination);
+    daySource.start(0);
+  } else if (!isDay && nightAudioBuffer) {
+    nightSource = audioCtx.createBufferSource();
+    nightSource.buffer = nightAudioBuffer;
+    nightSource.loop = true;
+    nightSource.connect(audioCtx.destination);
+    nightSource.start(0);
+  }
+}
+
+// Umschalten zwischen Tag- und Nachtszene per Taste T
+document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "t") {
+    isDay = !isDay;
+    document.querySelector("a-sky").setAttribute("color", isDay ? "#87CEEB" : "#000022");
+    playCurrentSceneSound();
+  }
+});
+
+// Initialisiere Audio nach erstem Klick (Autoplay-Schutz)
+document.addEventListener("click", () => {
+  if (!audioCtx) {
+    initAudioBuffers();
+  }
+}, { once: true });
