@@ -1,0 +1,254 @@
+const titleElem = document.getElementById('title-display');
+const messageElem = document.getElementById('message-display');
+const indexElem = document.getElementById('client-index');
+const canvas = document.getElementById('canvas');
+const context = canvas.getContext('2d');
+const webRoomsWebSocketServerAddr = 'https://nosch.uber.space/web-rooms/';
+
+const circleRadius = 50;
+
+let clientId = null;
+let clientCount = 0;
+
+titleElem.innerText = 'Citypaint';
+messageElem.innerText = '';
+
+const canvasMap = {};
+const contextMap = {};
+let aktiveNummer = null;
+let zeichnen = false;
+
+// Statische Canvas-Elemente (1–3) hinzufügen
+for (let i = 1; i <= 3; i++) {
+  const canvas = document.getElementById(`canvas${i}`);
+  if (canvas) {
+    canvasMap[i] = canvas;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 2;
+    contextMap[i] = ctx;
+  }
+}
+
+
+// neue Map für die Texturen
+const textureMap = {};
+
+// Dynamisch neue A-Frame-Planes mit spezifischer Position und Rotation erzeugen
+for (let i = 4; i <= 6; i++) {
+  // Canvas erzeugen
+  const canvas = document.createElement("canvas");
+  canvas.width = 512 * 2;
+  canvas.height = 512 * 4;
+  canvas.id = `canvas${i}`;
+  canvas.style.display = "none";
+  canvas.style.position = "absolute";
+  canvas.style.top = "10px";
+  canvas.style.left = "10px";
+  document.body.appendChild(canvas);
+
+  // Canvas registrieren
+  canvasMap[i] = canvas;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 2;
+  contextMap[i] = ctx;
+
+  // Plane erzeugen
+  const plane = document.createElement("a-plane");
+  plane.setAttribute("id", `plane${i}`);
+
+  if (i === 4) {
+    plane.setAttribute("position", `15 1.6 -13.49`);
+    plane.setAttribute("rotation", `0 180 0`);
+  } else if (i === 5) {
+    plane.setAttribute("position", `-16.51 1.6 15`);
+    plane.setAttribute("rotation", `0 90 0`);
+  } else if (i === 6) {
+    plane.setAttribute("position", `5 1.6 3.49`);
+    plane.setAttribute("rotation", `0 0 0`);
+  }
+
+  plane.setAttribute("width", "3");
+  plane.setAttribute("height", "4");
+  
+  // Texture erstellen und speichern
+  const texture = new THREE.CanvasTexture(canvas);
+  textureMap[i] = texture;
+
+  // Material mit Textur setzen (A-Frame Material mit Three.js Textur)
+  // Wir setzen das Material manuell über three.js in der Szene, weil A-Frame nicht direkt CanvasTexturen bindet
+  plane.addEventListener('loaded', () => {
+    const mesh = plane.getObject3D('mesh');
+    if (mesh) {
+      mesh.material.map = texture;
+      mesh.material.side = THREE.DoubleSide;
+      mesh.material.needsUpdate = true;
+    }
+  });
+
+  document.querySelector("a-scene").appendChild(plane);
+
+  // Klick auf Plane aktiviert zugehörige Canvas
+  plane.addEventListener("click", () => toggleCanvas(i));
+}
+
+// Mausposition im Canvas berechnen
+function getCanvasCoords(canvas, event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+}
+
+// Zeichenfläche anzeigen/verstecken (toggle)
+function toggleCanvas(num) {
+  const canvas = canvasMap[num];
+
+  // Falls dieselbe Fläche aktiv ist → schließen
+  if (aktiveNummer === num) {
+    canvas.style.display = "none";
+    aktiveNummer = null;
+    return;
+  }
+
+  // Andere Fläche deaktivieren
+  if (aktiveNummer) {
+    canvasMap[aktiveNummer].style.display = "none";
+  }
+
+  aktiveNummer = num;
+  canvas.style.display = "block";
+
+  const ctx = contextMap[num];
+
+  canvas.onmousedown = (e) => {
+    zeichnen = true;
+    const pos = getCanvasCoords(canvas, e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  };
+
+  canvas.onmouseup = () => zeichnen = false;
+
+  canvas.onmousemove = (e) => {
+    if (!zeichnen) return;
+    const pos = getCanvasCoords(canvas, e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    updatePlaneTexture(num);
+  };
+}
+
+function updatePlaneTexture(num) {
+  const texture = textureMap[num];
+  if (texture) {
+    texture.needsUpdate = true;
+  } else {
+    console.warn(`No texture found for canvas ${num}`);
+  }
+}
+
+// Tasteneingabe: 1, 2, 3 → Umschalten der Canvas
+document.addEventListener("keydown", (event) => {
+  if (["1", "2", "3"].includes(event.key)) {
+    toggleCanvas(Number(event.key));
+  }
+});
+
+// Alternativ: Klick auf die 3D-Fläche (für plane1–plane6)
+for (let i = 1; i <= 6; i++) {
+  const plane = document.querySelector(`#plane${i}`);
+  if (plane) {
+    plane.addEventListener("click", () => toggleCanvas(i));
+  }
+}
+/****************************************************************
+ * websocket communication
+ */
+const socket = new WebSocket(webRoomsWebSocketServerAddr);
+
+// listen to opening websocket connections
+socket.addEventListener('open', (event) => {
+  sendRequest('*enter-room*', 'touch-touch');
+  sendRequest('*subscribe-client-count*');
+
+  // ping the server regularly with an empty message to prevent the socket from closing
+  setInterval(() => socket.send(''), 30000);
+});
+
+socket.addEventListener("close", (event) => {
+  clientId = null;
+  document.body.classList.add('disconnected');
+  sendRequest('*broadcast-message*', ['end', clientId]);
+});
+
+// listen to messages from server
+socket.addEventListener('message', (event) => {
+  const data = event.data;
+
+  if (data.length > 0) {
+    const incoming = JSON.parse(data);
+    const selector = incoming[0];
+
+    // dispatch incomming messages
+    switch (selector) {
+      case '*client-id*':
+        clientId = incoming[1] + 1;
+        indexElem.innerHTML = `#${clientId}/${clientCount}`;
+        break;
+
+      case '*client-count*':
+        clientCount = incoming[1];
+        indexElem.innerHTML = `#${clientId}/${clientCount}`;
+        break;
+
+      case 'start': {
+        const id = incoming[1];
+        const x = incoming[2];
+        const y = incoming[3];
+        createTouch(id, x, y);
+        break;
+      }
+
+      case 'move': {
+        const id = incoming[1];
+        const x = incoming[2];
+        const y = incoming[3];
+        moveTouch(id, x, y);
+        break;
+      }
+
+      case 'end': {
+        const id = incoming[1];
+        deleteTouch(id);
+        break;
+      }
+
+      case '*error*': {
+        const message = incoming[1];
+        console.warn('server error:', ...message);
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+});
+
+function setErrorMessage(text) {
+  messageElem.innerText = text;
+  messageElem.classList.add('error');
+}
+
+function sendRequest(...message) {
+  const str = JSON.stringify(message);
+  socket.send(str);
+}
