@@ -7,7 +7,7 @@ Es bietet eine interaktive Benutzererfahrung durch die die Darstellung selbsters
 
 Funktionen
 
-- Laufen und erkunden mit W,A,S,D und Mausklick
+- Laufen und erkunden mit W,A,S,D, Szenenwechsel mit T und umschauen mit der Maus
 - Zeichnen auf virtuelle Wände (Tasten **1**, **2**, **3**)
 - 3D-Stadt mit Gebäuden, Straßen, Park & Autos 
 - Dynamischer Tag-/Nacht-Modus
