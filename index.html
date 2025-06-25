@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+  <title>Citypaint</title>
+  <meta charset="utf-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+   <link rel="stylesheet" href="style.css">
+   <script language="JavaScript" type="module" src="player.js" defer></script>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <style>
+      .zeichenCanvas {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border: 1px solid #ffffff;
+        z-index: 10;
+        display: none;
+        box-shadow: 0 0 15px rgb(255, 255, 255);
+      }
+
+      #client-info {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-family: sans-serif;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 6px 12px;
+        border-radius: 6px;
+        z-index: 20;
+      }
+
+      #toggle-sky {
+        position: absolute;
+        top: 120px;
+        left: 40px;
+        z-index: 20;
+        padding: 6px 12px;
+        font-size: 14px;
+      }
+    </style>
+   </head>
+   <body>
+  <!-- HTML-Canvas für jede Zeichenfläche -->
+  <canvas id="canvas1" width="512" height="512" class="zeichenCanvas"></canvas>
+  <canvas id="canvas2" width="512" height="512" class="zeichenCanvas"></canvas>
+  <canvas id="canvas3" width="512" height="512" class="zeichenCanvas"></canvas>
+
+  <div id="title-display"></div>
+   <div id="message-display"></div>
+   <canvas id="canvas"></canvas>
+  <div id="client-info">
+    <div id="client-index">3 Spieler online</div>
+  </div>
+  <!--Button Style -->
+  <button id="toggleButton"
+    style="position: absolute; top: 130px; left: 60px; z-index: 1000; padding: 6px 12px; font-size: 14px; background: rgba(159, 7, 240, 0.7); color: white; border: none; border-radius: 5px; cursor: pointer;">
+    Tag/Nacht wechseln
+  </button>
+   <a-scene>
+    <!-- Himmel -->
+   <a-sky id="sky" color="#87CEEB"></a-sky> 
+
+   <!-- Sonne -->
+   <a-sphere position="30 50 -50" radius="5" color="#ffff66" emissive="#ffff66"></a-sphere>
+
+   <!-- Boden als Ziel für das Licht -->
+   <a-plane id="ground" position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#228B22" shadow></a-plane>
+
+    
+    <!-- Boden -->
+
+    <!-- Kreuzförmige Straßen -->
+    <a-box position="0 0.09 0" depth="4" height="0.02" width="100" color="#222"></a-box>
+    <a-box position="0 0.09 0" depth="100" height="0.02" width="4" color="#222"></a-box>
+    <!-- Nordwest-Ecke: Gebäude -->
+    <a-box position="-25 5 25" depth="3" height="10" width="3" color="#555"></a-box>
+    <a-box position="-15 6 25" depth="3" height="12" width="3" color="#666"></a-box>
+    <a-box position="-25 6 15" depth="3" height="12" width="3" color="#777"></a-box>
+    <a-box position="-15 8 15" depth="3" height="16" width="3" color="#888" id="tower-nw"></a-box> <!-- HÖCHSTES NW-GEBÄUDE -->
+    <a-box position="-25 8 5" depth="3" height="16" width="3" color="#555"></a-box>
+    <a-box position="-5 8 5" depth="3" height="16" width="3" color="#777"></a-box>
+    <a-box position="-7 8 11" depth="3" height="16" width="3" color="#888"></a-box>
+    
+    <!-- Nordost-Ecke: Gebäude -->
+    <a-box position="-25 5 -25" depth="3" height="10" width="3" color="#555"></a-box>
+    <a-box position="-15 6 -25" depth="3" height="12" width="3" color="#666"></a-box>
+    <a-box position="-25 6 -15" depth="3" height="12" width="3" color="#777"></a-box>
+    <a-box position="-15 8 -15" depth="3" height="16" width="3" color="#888"></a-box>
+    <a-box position="-25 8 -5" depth="3" height="16" width="3" color="#555"></a-box>
+    <a-box position="-5 8 -5" depth="3" height="16" width="3" color="#777"></a-box>
+    <a-box position="-7 8 -11" depth="3" height="16" width="3" color="#888"></a-box> 
+    
+    <!-- Südwest-Ecke -->
+    <a-box position="5 8 5" depth="3" height="16" width="3" color="#777"></a-box>
+
+    <!-- Südost-Ecke: Gebäude -->
+    <a-box position="25 5 -25" depth="3" height="10" width="3" color="#999"></a-box>
+    <a-box position="15 6 -25" depth="3" height="12" width="3" color="#444"></a-box>
+    <a-box position="25 6 -15" depth="3" height="12" width="3" color="#666"></a-box>
+    <a-box position="15 8 -15" depth="3" height="16" width="3" color="#777" id="tower-se"></a-box> <!-- HÖCHSTES SE-GEBÄUDE -->
+    <a-box position="25 8 -5" depth="3" height="16" width="3" color="#555"></a-box>
+    <a-box position="5 8 -5" depth="3" height="16" width="3" color="#777"></a-box>
+    <a-box position="7 8 -11" depth="3" height="16" width="3" color="#888"></a-box>
+
+    <!-- Fenster an größten Gebäuden -->
+    <a-box position="-15 9.5 15.3" width="0.3" height="0.8" depth="0.1" color="#eee"></a-box>
+    <a-box position="-15 8 15.3" width="0.3" height="0.8" depth="0.1" color="#eee"></a-box>
+    <a-box position="15 9.5 -14.7" width="0.3" height="0.8" depth="0.1" color="#eee"></a-box>
+    <a-box position="15 8 -14.7" width="0.3" height="0.8" depth="0.1" color="#eee"></a-box>
+
+    <!-- Spitzen auf höchsten Gebäuden -->
+    <!-- Nordwest -->
+    <a-box position="-15.4 16.3 15" width="0.6" height="0.6" depth="0.6" color="#999"></a-box>
+    <a-box position="-14.6 16.3 15" width="0.6" height="0.6" depth="0.6" color="#999"></a-box>
+    <a-box position="-15 18 15" width="0.07" height="3" depth="0.07" color="#aaa"></a-box>
+
+    <!-- Südost -->
+    <a-box position="14.6 16.3 -15" width="0.6" height="0.6" depth="0.6" color="#999"></a-box>
+    <a-box position="15.4 16.3 -15" width="0.6" height="0.6" depth="0.6" color="#999"></a-box>
+    <a-box position="15 18 -15" width="0.07" height="3" depth="0.07" color="#aaa"></a-box>
+
+    <!-- Park mit See -->
+    <a-plane position="20 0.03 20" rotation="-90 0 0" width="10" height="10" color="#228B22"></a-plane>
+    <a-circle position="18 0.04 18" rotation="-90 0 0" radius="4" color="#1E90FF"></a-circle>
+
+    <!-- Zwei Bäume -->
+    <a-cylinder position="23 1 19" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere position="23 2.3 19" radius="1" color="#006400"></a-sphere>
+    <a-cylinder position="21 0.7 21" radius="0.15" height="1.4" color="#8B4513"></a-cylinder>
+    <a-sphere position="21 1.5 21" radius="0.7" color="#228B22"></a-sphere>
+    <a-cylinder position="10 1 10" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="10 2.3 10" radius="1" color="#006400"></a-sphere>
+    
+    <a-cylinder position="25 1 15" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="25 2.3 15" radius="1" color="#006400"></a-sphere>
+    
+    <a-cylinder position="15 1 30" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="15 2.3 30" radius="1" color="#006400"></a-sphere>
+    
+    <a-cylinder position="30 1 25" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="30 2.3 25" radius="1" color="#006400"></a-sphere>
+    
+    <a-cylinder position="20 1 40" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="20 2.3 40" radius="1" color="#006400"></a-sphere>
+    
+    <a-cylinder position="35 1 20" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="35 2.3 20" radius="1" color="#006400"></a-sphere>
+    
+    <a-cylinder position="40 1 35" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="40 2.3 35" radius="1" color="#006400"></a-sphere>
+    
+    <a-cylinder position="30 1 40" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="30 2.3 40" radius="1" color="#006400"></a-sphere>
+    <a-cylinder position="12 1 12" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="12 2.3 12" radius="1" color="#006400"></a-sphere>
+
+    <a-cylinder position="27 1 17" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="27 2.3 17" radius="1" color="#006400"></a-sphere>
+
+    <a-cylinder position="17 1 32" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+    <a-sphere   position="17 2.3 32" radius="1" color="#006400"></a-sphere>
+
+   <a-cylinder position="32 1 27" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+   <a-sphere   position="32 2.3 27" radius="1" color="#006400"></a-sphere>
+
+   <a-cylinder position="22 1 42" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+   <a-sphere   position="22 2.3 42" radius="1" color="#006400"></a-sphere>
+
+   <a-cylinder position="37 1 22" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+   <a-sphere   position="37 2.3 22" radius="1" color="#006400"></a-sphere>
+
+   <a-cylinder position="42 1 37" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+   <a-sphere   position="42 2.3 37" radius="1" color="#006400"></a-sphere>
+
+   <a-cylinder position="32 1 42" radius="0.2" height="2" color="#8B4513"></a-cylinder>
+   <a-sphere   position="32 2.3 42" radius="1" color="#006400"></a-sphere>
+    
+    <!-- Bank -->
+    <a-box position="14 0.4 14" rotation="0 45 0" depth="0.5" height="0.2" width="1.5" color="#8B4513"></a-box>
+
+    <!-- Wolken (animiert) -->
+    <a-sphere position="-20 25 20" radius="3" color="#ffffff" opacity="0.8"
+              animation="property: position; to: 30 25 20; dur: 60000; loop: true; dir: alternate"></a-sphere>
+    <a-sphere position="-17 25 20" radius="2.5" color="#ffffff" opacity="0.8"
+              animation="property: position; to: 33 25 20; dur: 60000; loop: true; dir: alternate"></a-sphere>
+    <a-sphere position="-23 25 20" radius="2.8" color="#ffffff" opacity="0.8"
+              animation="property: position; to: 27 25 20; dur: 60000; loop: true; dir: alternate"></a-sphere>
+
+    <a-sphere position="20 28 -20" radius="3" color="#ffffff" opacity="0.8"
+              animation="property: position; to: -30 28 -20; dur: 70000; loop: true; dir: alternate"></a-sphere>
+    <a-sphere position="22 28 -18" radius="2.5" color="#ffffff" opacity="0.8"
+              animation="property: position; to: -28 28 -18; dur: 70000; loop: true; dir: alternate"></a-sphere>
+    <a-sphere position="18 28 -22" radius="2.8" color="#ffffff" opacity="0.8"
+              animation="property: position; to: -32 28 -22; dur: 70000; loop: true; dir: alternate"></a-sphere>
+
+    <a-sphere position="-10 26 10" radius="2.7" color="#ffffff" opacity="0.8"
+              animation="property: position; to: 35 26 10; dur: 65000; loop: true; dir: alternate"></a-sphere>
+    <a-sphere position="25 29 -10" radius="2.9" color="#ffffff" opacity="0.8"
+              animation="property: position; to: -35 29 -10; dur: 75000; loop: true; dir: alternate"></a-sphere>
+
+    <a-entity id="traffic" position="0 18 0">
+    <a-entity auto-car direction="x" from="-30" to="30" z="2" color="#ff0000"></a-entity>
+    <a-entity auto-car direction="x" from="30" to="-30" z="-2" color="#00ffcc"></a-entity>
+    </a-entity>
+
+    <!-- Straßenlaternen -->
+    <a-cylinder position="-10 2.5 1.5" radius="0.05" height="5" color="#444"></a-cylinder>
+    <a-sphere position="-10 5.1 1.5" radius="0.15" color="#ffcc00" emissive="#ffcc00"></a-sphere>
+    <a-cylinder position="10 2.5 1.5" radius="0.05" height="5" color="#444"></a-cylinder>
+    <a-sphere position="10 5.1 1.5" radius="0.15" color="#ffcc00" emissive="#ffcc00"></a-sphere>
+    <a-cylinder position="1.5 2.5 -10" radius="0.05" height="5" color="#444"></a-cylinder>
+    <a-sphere position="1.5 5.1 -10" radius="0.15" color="#ffcc00" emissive="#ffcc00"></a-sphere>
+    <a-cylinder position="1.5 2.5 10" radius="0.05" height="5" color="#444"></a-cylinder>
+    <a-sphere position="1.5 5.1 10" radius="0.15" color="#ffcc00" emissive="#ffcc00"></a-sphere>
+
+    <!-- Autos -->
+    <a-box position="-6 0.6 2" width="1.5" height="0.6" depth="0.8" color="#ff0000"></a-box>
+    <a-cylinder position="-6.5 0.3 2.3" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+    <a-cylinder position="-5.5 0.3 2.3" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+    <a-cylinder position="-6.5 0.3 1.7" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+    <a-cylinder position="-5.5 0.3 1.7" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+
+    <a-box position="6 0.6 -2" width="1.5" height="0.6" depth="0.8" color="#0000ff"></a-box>
+    <a-cylinder position="5.5 0.3 -2.3" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+    <a-cylinder position="6.5 0.3 -2.3" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+    <a-cylinder position="5.5 0.3 -1.7" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+    <a-cylinder position="6.5 0.3 -1.7" radius="0.15" height="0.15" rotation="90 0 0" color="#000"></a-cylinder>
+
+    <!-- Bürgersteige -->
+    <a-box position="0 0.05 2.5" width="100" height="0.02" depth="1" color="#cccccc"></a-box>
+    <a-box position="0 0.05 -2.5" width="100" height="0.02" depth="1" color="#cccccc"></a-box>
+    <a-box position="2.5 0.05 0" width="1" height="0.02" depth="100" color="#cccccc"></a-box>
+    <a-box position="-2.5 0.05 0" width="1" height="0.02" depth="100" color="#cccccc"></a-box>
+    
+    <!-- Kamera -->
+    <a-entity position="0 0.5 5">
+    <a-camera wasd-controls look-controls></a-camera>
+   </a-entity>
+
+    </a-entity>
+   <!-- Büsche -->
+   <a-sphere position="24 0.5 24" radius="0.6" color="#2e8b57"></a-sphere>
+   <a-sphere position="26 0.5 18" radius="0.7" color="#3cb371"></a-sphere>
+   <a-sphere position="23 0.5 16" radius="0.5" color="#2e8b57"></a-sphere>
+   <a-sphere position="19 0.5 26" radius="0.6" color="#3cb371"></a-sphere>
+   </a-scene>
+   <script>
+    const skyElem = document.querySelector("a-sky");
+    const toggleButton = document.getElementById("toggleButton");
+    let isDay = true;
+
+    toggleButton.addEventListener("click", () => {
+      if (isDay) {
+        skyElem.setAttribute("color", "#000022"); // Nacht
+      } else {
+        skyElem.setAttribute("color", "#87CEEB"); // Tag
+      }
+      isDay = !isDay;
+    });
+   </script>
+   </body>
+  </html>
