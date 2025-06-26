@@ -156,13 +156,11 @@ document.addEventListener('keydown', (event) => {
 const socket = new WebSocket(webRoomsWebSocketServerAddr);
 
 // auf das Öffnen der WebSocket-Verbindung hören
-// listen to opening websocket connections
 socket.addEventListener('open', (event) => {
-  sendRequest('*enter-room*', 'Citypaint'); 
+  sendRequest('*enter-room*', 'citypaint');
   sendRequest('*subscribe-client-count*');
-  sendRequest('*subscribe-client-enter-exit*');
-  sendRequest('*broadcast-message*', ['draw-line', x, y]);
-  sendRequest('*broadcast-message*', ['draw-start', x, y]);
+  sendRequest('*broadcast-message*', ['draw-line', num, pos.x, pos.y]);
+  sendRequest('*broadcast-message*', ['draw-start', num, pos.x, pos.y]);
 
   // Server regelmäßig mit einer leeren Nachricht anpingen, damit die Verbindung nicht geschlossen wird
   setInterval(() => socket.send(''), 30000);
@@ -171,6 +169,7 @@ socket.addEventListener('open', (event) => {
 socket.addEventListener('close', (event) => {
   clientId = null;
   document.body.classList.add('disconnected');
+  sendRequest('*broadcast-message*', ['end', clientId]);
 });
 
 // auf Nachrichten vom Server hören
@@ -193,9 +192,10 @@ socket.addEventListener('message', (event) => {
           const y = incoming[3];
           const ctx = contextMap[num];
           if (ctx) {
-            ctx.arc(pos.x, pos.y, 2, 0, 2 * Math.PI); // kleiner Kreis
+            ctx.beginPath(); // Beginne einen neuen Pfad
+            ctx.arc(x, y, 2, 0, 2 * Math.PI); // Zeichne einen kleinen Kreis
             ctx.fill();
-          updatePlaneTexture(num);
+            updatePlaneTexture(num); // Aktualisiere die Textur
           }
           break;
         }
@@ -206,7 +206,8 @@ socket.addEventListener('message', (event) => {
           const ctx = contextMap[num];
           if (ctx) {
             ctx.beginPath();
-            ctx.moveTo(x, y);        }
+            ctx.moveTo(x, y); // Setze den Startpunkt des Pfades
+          }
           break;
         }
       case '*client-count*':
