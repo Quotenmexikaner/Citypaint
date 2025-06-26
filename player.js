@@ -120,6 +120,7 @@ function toggleCanvas(num) {
     const pos = getCanvasCoords(canvas, e);
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
+    sendRequest('*broadcast-message*', ['draw-start', num, pos.x, pos.y]);
   };
 
   canvas.onmouseup = () => zeichnen = false;
@@ -130,16 +131,15 @@ function toggleCanvas(num) {
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     updatePlaneTexture(num);
-    sendRequest('*broadcast-message*', ['draw', clientId, num, pos.x, pos.y]);
+    sendRequest('*broadcast-message*', ['draw-line',num, pos.x, pos.y]);
   };
 }
 
 function updatePlaneTexture(num) {
-  const texture = textureMap[num];
-  if (texture) {
-    texture.needsUpdate = true;
-  } else {
-    console.warn(`No texture found for canvas ${num}`);
+  const plane = document.querySelector(`#plane${num}`);
+  const mesh = plane.getObject3D('mesh');
+  if (mesh && mesh.material.map) {
+    mesh.material.map.needsUpdate = true;
   }
 }
 
@@ -157,8 +157,10 @@ const socket = new WebSocket(webRoomsWebSocketServerAddr);
 
 // auf das Öffnen der WebSocket-Verbindung hören
 socket.addEventListener('open', (event) => {
-  sendRequest('*enter-room*', 'touch-touch');
+  sendRequest('*enter-room*', 'Citypaint');
   sendRequest('*subscribe-client-count*');
+  sendRequest('*broadcast-message*', ['draw-line', num, x, y]);
+  sendRequest('*broadcast-message*', ['draw-start', num, x, y]);
 
   // Server regelmäßig mit einer leeren Nachricht anpingen, damit die Verbindung nicht geschlossen wird
   setInterval(() => socket.send(''), 30000);
@@ -184,7 +186,28 @@ socket.addEventListener('message', (event) => {
         clientId = incoming[1] + 1;
         indexElem.innerHTML = `#${clientId}/${clientCount}`;
         break;
-
+        case 'draw-line': {
+          const num = incoming[1];
+          const x = incoming[2];
+          const y = incoming[3];
+          const ctx = contextMap[num];
+          if (ctx) {
+            ctx.arc(pos.x, pos.y, 2, 0, 2 * Math.PI); // kleiner Kreis
+            ctx.fill();
+          updatePlaneTexture(num);
+          }
+          break;
+        }
+        case 'draw-start': {
+          const num = incoming[1];
+          const x = incoming[2];
+          const y = incoming[3];
+          const ctx = contextMap[num];
+          if (ctx) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);        }
+          break;
+        }
       case '*client-count*':
         clientCount = incoming[1];
         indexElem.innerHTML = `#${clientId}/${clientCount}`;
@@ -272,4 +295,3 @@ document.addEventListener('click', () => {
     initAudioBuffers();
   }
 }, { once: true });
-
