@@ -156,9 +156,11 @@ document.addEventListener('keydown', (event) => {
 const socket = new WebSocket(webRoomsWebSocketServerAddr);
 
 // auf das Öffnen der WebSocket-Verbindung hören
+// listen to opening websocket connections
 socket.addEventListener('open', (event) => {
-  sendRequest('*enter-room*', 'Citypaint');
+  sendRequest('*enter-room*', 'citypaint'); 
   sendRequest('*subscribe-client-count*');
+  sendRequest('*subscribe-client-enter-exit*');
   sendRequest('*broadcast-message*', ['draw-line', num, x, y]);
   sendRequest('*broadcast-message*', ['draw-start', num, x, y]);
 
