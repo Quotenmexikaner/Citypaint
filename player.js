@@ -192,10 +192,10 @@ socket.addEventListener('message', (event) => {
           const y = incoming[3];
           const ctx = contextMap[num];
           if (ctx) {
-            ctx.beginPath(); // Beginne einen neuen Pfad
-            ctx.arc(x, y, 2, 0, 2 * Math.PI); // Zeichne einen kleinen Kreis
-            ctx.fill();
-            updatePlaneTexture(num); // Aktualisiere die Textur
+            ctx.lineTo(x, y); // Zeichne die Linie
+        ctx.stroke();     // Führe die Zeichenoperation aus
+        updatePlaneTexture(num); // Aktualisiere die Textur des Planes
+
           }
           break;
         }
