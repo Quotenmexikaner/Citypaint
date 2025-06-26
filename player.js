@@ -11,10 +11,12 @@ let clientCount = 0;
 titleElem.innerText = 'Citypaint';
 messageElem.innerText = '';
 
+// Neue Definitionen für Canvas, Context und Zeichen-Status
 const canvasMap = {};
 const contextMap = {};
 let aktiveNummer = null;
 let zeichnen = false;
+
 // Audio-Variablen
 let dayAudioBuffer, nightAudioBuffer;
 let daySource = null;
@@ -22,71 +24,51 @@ let nightSource = null;
 let audioCtx = null;
 let isDay = true;
 
-// Statische Canvas-Elemente (1–3) hinzufügen
-for (let i = 1; i <= 3; i++) {
-  const canvas = document.getElementById(`canvas${i}`);
-  if (canvas) {
-    canvasMap[i] = canvas;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 2;
-    contextMap[i] = ctx;
-  }
-}
+// Definition der Graffiti-Planes mit Position, Rotation und Größe
+const graffitiPlanes = [
+  { id: 1, position: '15 1.6 -13.49', rotation: '0 180 0', width: 3, height: 4 },
+  { id: 2, position: '-16.51 1.6 15', rotation: '0 90 0', width: 3, height: 4 },
+  { id: 3, position: '5 1.6 3.49', rotation: '0 0 0', width: 3, height: 4 },
+];
 
-
-// neue Map für die Texturen
+// Textur-Map für die Planes
 const textureMap = {};
 
-// Dynamisch neue A-Frame-Planes mit spezifischer Position und Rotation erzeugen
-for (let i = 4; i <= 6; i++) {
+// Erstelle für jede Plane ein Canvas, Textur, Plane-Element und setze Zeichenlogik
+graffitiPlanes.forEach(({ id, position, rotation, width, height }) => {
   // Canvas erzeugen
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   canvas.width = 512 * 2;
   canvas.height = 512 * 4;
-  canvas.id = `canvas${i}`;
-  canvas.style.display = "none";
-  canvas.style.position = "absolute";
-  canvas.style.top = "10px";
-  canvas.style.left = "10px";
+  canvas.id = `canvas${id}`;
+  canvas.style.display = 'none';
+  canvas.style.position = 'absolute';
+  canvas.style.top = '10px';
+  canvas.style.left = '10px';
   document.body.appendChild(canvas);
 
-  // Canvas registrieren
-  canvasMap[i] = canvas;
-
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#ffffff";
+  // Canvas und Context speichern
+  canvasMap[id] = canvas;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "#000";
+  ctx.strokeStyle = `hsl(${Math.floor(Math.random() * 360)}, 100%, 50%)`;
   ctx.lineWidth = 2;
-  contextMap[i] = ctx;
+  contextMap[id] = ctx;
 
   // Plane erzeugen
-  const plane = document.createElement("a-plane");
-  plane.setAttribute("id", `plane${i}`);
+  const plane = document.createElement('a-plane');
+  plane.setAttribute('id', `plane${id}`);
+  plane.setAttribute('position', position);
+  plane.setAttribute('rotation', rotation);
+  plane.setAttribute('width', width);
+  plane.setAttribute('height', height);
 
-  if (i === 4) {
-    plane.setAttribute("position", `15 1.6 -13.49`);
-    plane.setAttribute("rotation", `0 180 0`);
-  } else if (i === 5) {
-    plane.setAttribute("position", `-16.51 1.6 15`);
-    plane.setAttribute("rotation", `0 90 0`);
-  } else if (i === 6) {
-    plane.setAttribute("position", `5 1.6 3.49`);
-    plane.setAttribute("rotation", `0 0 0`);
-  }
-
-  plane.setAttribute("width", "3");
-  plane.setAttribute("height", "4");
-  
   // Texture erstellen und speichern
   const texture = new THREE.CanvasTexture(canvas);
-  textureMap[i] = texture;
+  textureMap[id] = texture;
 
-  // Material mit Textur setzen (A-Frame Material mit Three.js Textur)
-  // Wir setzen das Material manuell über three.js in der Szene, weil A-Frame nicht direkt CanvasTexturen bindet
+  // Material mit Textur setzen nach Laden des Plane-Meshes
   plane.addEventListener('loaded', () => {
     const mesh = plane.getObject3D('mesh');
     if (mesh) {
@@ -96,11 +78,12 @@ for (let i = 4; i <= 6; i++) {
     }
   });
 
-  document.querySelector("a-scene").appendChild(plane);
+  // Plane in Szene einfügen
+  document.querySelector('a-scene').appendChild(plane);
 
   // Klick auf Plane aktiviert zugehörige Canvas
-  plane.addEventListener("click", () => toggleCanvas(i));
-}
+  plane.addEventListener('click', () => toggleCanvas(id));
+});
 
 // Mausposition im Canvas berechnen
 function getCanvasCoords(canvas, event) {
@@ -117,18 +100,18 @@ function toggleCanvas(num) {
 
   // Falls dieselbe Fläche aktiv ist → schließen
   if (aktiveNummer === num) {
-    canvas.style.display = "none";
+    canvas.style.display = 'none';
     aktiveNummer = null;
     return;
   }
 
   // Andere Fläche deaktivieren
   if (aktiveNummer) {
-    canvasMap[aktiveNummer].style.display = "none";
+    canvasMap[aktiveNummer].style.display = 'none';
   }
 
   aktiveNummer = num;
-  canvas.style.display = "block";
+  canvas.style.display = 'block';
 
   const ctx = contextMap[num];
 
@@ -147,6 +130,7 @@ function toggleCanvas(num) {
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     updatePlaneTexture(num);
+    sendRequest('*broadcast-message*', ['draw', clientId, num, pos.x, pos.y]);
   };
 }
 
@@ -160,8 +144,8 @@ function updatePlaneTexture(num) {
 }
 
 // Tasteneingabe: 1, 2, 3 → Umschalten der Canvas
-document.addEventListener("keydown", (event) => {
-  if (["1", "2", "3"].includes(event.key)) {
+document.addEventListener('keydown', (event) => {
+  if (['1', '2', '3'].includes(event.key)) {
     toggleCanvas(Number(event.key));
   }
 });
@@ -180,7 +164,7 @@ socket.addEventListener('open', (event) => {
   setInterval(() => socket.send(''), 30000);
 });
 
-socket.addEventListener("close", (event) => {
+socket.addEventListener('close', (event) => {
   clientId = null;
   document.body.classList.add('disconnected');
   sendRequest('*broadcast-message*', ['end', clientId]);
@@ -206,10 +190,20 @@ socket.addEventListener('message', (event) => {
         indexElem.innerHTML = `#${clientId}/${clientCount}`;
         break;
 
-
       case '*error*': {
         const message = incoming[1];
         console.warn('server error:', ...message);
+        break;
+      }
+
+      case 'draw': {
+        const [_, fromId, canvasNum, x, y] = incoming;
+        const ctx = contextMap[canvasNum];
+        if (!ctx) return;
+
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        updatePlaneTexture(canvasNum);
         break;
       }
 
@@ -218,8 +212,6 @@ socket.addEventListener('message', (event) => {
     }
   }
 });
-
-
 
 function sendRequest(...message) {
   const str = JSON.stringify(message);
@@ -236,8 +228,8 @@ async function initAudioBuffers() {
     return await audioCtx.decodeAudioData(data);
   };
 
-  dayAudioBuffer = await loadBuffer("sounds/day.mp3");
-  nightAudioBuffer = await loadBuffer("sounds/night.mp3");
+  dayAudioBuffer = await loadBuffer('sounds/day.mp3');
+  nightAudioBuffer = await loadBuffer('sounds/night.mp3');
 
   playCurrentSceneSound();
 }
@@ -266,17 +258,18 @@ function playCurrentSceneSound() {
 }
 
 // Umschalten zwischen Tag- und Nachtszene per Taste T
-document.addEventListener("keydown", (e) => {
-  if (e.key.toLowerCase() === "t") {
+document.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 't') {
     isDay = !isDay;
-    document.querySelector("a-sky").setAttribute("color", isDay ? "#87CEEB" : "#000022");
+    document.querySelector('a-sky').setAttribute('color', isDay ? '#87CEEB' : '#000022');
     playCurrentSceneSound();
   }
 });
 
 // Initialisiere Audio nach erstem Klick (Autoplay-Schutz)
-document.addEventListener("click", () => {
+document.addEventListener('click', () => {
   if (!audioCtx) {
     initAudioBuffers();
   }
 }, { once: true });
+
