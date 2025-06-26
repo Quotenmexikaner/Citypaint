@@ -161,8 +161,8 @@ socket.addEventListener('open', (event) => {
   sendRequest('*enter-room*', 'Citypaint'); 
   sendRequest('*subscribe-client-count*');
   sendRequest('*subscribe-client-enter-exit*');
-  sendRequest('*broadcast-message*', ['draw-line', num, x, y]);
-  sendRequest('*broadcast-message*', ['draw-start', num, x, y]);
+  sendRequest('*broadcast-message*', ['draw-line', x, y]);
+  sendRequest('*broadcast-message*', ['draw-start', x, y]);
 
   // Server regelmäßig mit einer leeren Nachricht anpingen, damit die Verbindung nicht geschlossen wird
   setInterval(() => socket.send(''), 30000);
