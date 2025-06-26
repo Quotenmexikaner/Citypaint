@@ -171,7 +171,6 @@ socket.addEventListener('open', (event) => {
 socket.addEventListener('close', (event) => {
   clientId = null;
   document.body.classList.add('disconnected');
-  sendRequest('*broadcast-message*', ['end', clientId]);
 });
 
 // auf Nachrichten vom Server hören
